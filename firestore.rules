@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Interactions collection: Log WhatsApp clicks by authenticated clients
+    match /interactions/{interactionId} {
+      // Only authenticated clients can log their own interactions
+      allow create: if request.auth != null 
+                    && request.resource.data.clientUid == request.auth.uid
+                    && request.resource.data.keys().hasAll(['clientUid', 'workerId', 'workerName', 'timestamp', 'action']);
+      
+      // Prevent unauthorized client reads, modifications, or deletions
+      allow read, update, delete: if false;
+    }
+
+    // Workers collection: Public read-only, strict write prevention
+    // (Workers are managed manually by Admin via JSON/backend, no frontend writes permitted)
+    match /workers/{workerId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // Client user records: Authenticated clients can only read/write their own profile
+    match /clients/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Default deny for all other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
